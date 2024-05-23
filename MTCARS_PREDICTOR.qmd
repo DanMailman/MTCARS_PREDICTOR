@@ -1,0 +1,298 @@
+---
+title: '"MTCARS" Statistical Analysis'
+author: "Dan Mailman"
+date: last-modified
+filters:
+  - include-code-files
+header-includes:
+  - \usepackage{float}                            # Control figure, table placement 
+  - \floatplacement{table}{H}                     # 'H' (here): ensure tables stay in place
+  - \floatplacement{figure}{H}                    # 'H' (here): ensure tables stay in place
+  - \usepackage{fontspec}                         # Allow font customization
+  - \setmainfont{Times New Roman}                 # Set main font to Times New Roman
+  - \setsansfont{Arial}                           # Set sans-serif font to Arial
+  - \setmonofont[Scale=0.7]{Courier New}          # Set  monospace font to Scaled Courier New
+  - \RedeclareSectionCommand[beforeskip=-1pt, afterskip=1pt]{section}
+  - \RedeclareSectionCommand[beforeskip=-1pt, afterskip=1pt]{subsection}
+  - \RedeclareSectionCommand[beforeskip=-1pt, afterskip=1pt]{subsubsection}
+  - \BeforeTOCHead[toc]{\vspace*{-5pt}}
+  - \AfterTOCHead[toc]{\vspace*{5pt}}
+  - \usepackage{tocloft}                          # TOC formatting
+  - \setlength{\cftbeforetoctitleskip}{0pt}       # Space before TOC title
+  - \setlength{\cftaftertoctitleskip}{5pt}        # Space after TOC title
+  - \setlength{\cftparskip}{0pt}                  # Paragraph skip in TOC
+  - \setlength{\cftbeforesecskip}{2pt}            # Space between TOC 
+  - \usepackage{geometry}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{booktabs}
+  - \usepackage{listings}
+  - \usepackage{xcolor}
+  - \usepackage{color}
+  - \usepackage{amsmath}
+
+format:
+  pdf:
+    toc: true
+    toc_depth: 1
+    toc-title: Contents
+    number-sections: true
+    number-depth: 3
+    highlight-style: Radical
+    geometry:
+      - top=.75in
+      - left=.75in
+      - bottom=.75in
+      - right=.75in
+    fontsize: 10pt
+    colorlinks: true
+    papersize: letter
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Define usable dimensions
+inMargin  =  0.75
+inPgW     =  8.5
+inPgH     = 11.0
+inPrtW    = inPgW - (2 * inMargin)
+inPrtH    = inPgH - (2 * inMargin)
+pacman::p_load(knitr,                   
+               tidyverse,
+               tinytex,
+               kableExtra,   # kable_styling
+               grid)         # grid.draw
+options(scipen = 999)
+```
+
+```{r RunCode, warning=FALSE, include=FALSE}
+source("mtcars_analysis.R")
+```
+
+\pagenumbering{gobble} <!-- Turns off page numbering for the first page -->
+\listoftables
+\listoffigures
+\newpage
+\pagenumbering{arabic} <!-- Restarts page numbering from here -->
+
+# Introduction
+
+## Background
+
+One piece of information that influences car-buyer choices is **miles per gallon** (**mpg**).  So, it would be useful to be able to predict **mpg** from other car-model variables.
+
+the **mtcars** dataset provided with r is an example dataset for variables and **mpg** data.
+
+## Objectives
+
+This analysis attempts to find a reasonably accurate model using **mtcars** to predict the **dependent variable** (**DV**), **mpg** from available **independent variables** (**IV**s).
+
+@fig-DistMPG shows the distribution of **mpg**.
+
+
+The goal is to:
+
+- Distinguish among significant and insignificant IVs.
+- Rank significance for IVs.
+- Produce a Model/Formula for predicting **mpg** from significant IVs.
+
+# Data Famililiarization
+
+Learning what each of the variables represents enables a preliminary classification that eliminates two variables from consideration as predictors for **mpg**. @tbl-VarClassTbl indicates **mtcars** IVs may be classified as **design** (specification for final mechanical assembly) and **measurement** (used to evaluate the finished assembly). By this criterion, **hp** and **qsec** are not best candidates for inclusion in predictive models for **mpg**.
+
+To determine a preliminary ordering for model candidates, this study hypothesizes 
+
+1. Measurement IVs are not likely to be the best candidates for final model IVs.
+1. IVs highly correlated to DV are better candidates for final model IVs.
+
+# Data Conditioning
+
+To facilitate correlation (via spearman), IVs with low integral counts of unique values are treated as ordinals. IVs with larger variation or real values are treated as numerics.
+@tbl-OrdsSummTbl and @tbl-NumsSummTbl summarize ordinal and numeric IVs.
+
+# Model IV Candidate Ordering by Correlation
+
+IV/DV correlation magnitudes (whether positive or negative) are used to order IV candidates for inclusion in the model.  @tbl-IVModelOrdTbl shows positive and negative correlations to DV in diminishing degree order. Taking absolute values of correlation coefficients produces an experimental candidate order:
+
+\begin{center}
+\textbf{`r vCorrOrder`}
+\end{center}
+
+Removing the **measurement** variables **hp** and **qsec**:
+
+\begin{center}
+\textbf{`r vCorrOrder01`}
+\end{center}
+
+@tbl-MtCarsTbl shows conditioned, re-ordered **mtcars** data.
+
+@tbl-mCorrsTbl and @fig-CorrAllIVs show correlations with **mpg** and among IVs.
+@tbl-mCorrsDepVarAndGoodIVsTbl and figure @fig-CorrAllIVs01 show the same information removing measurement IVs.
+
+# Eliminating Multicollinearity and Forming a Preliminary Hypothesis
+
+Highly correlated IVs are candidates for multicollinearity.  @tbl-CorrGrpsTbl shows highly correlated IV groups.  The IVs in the lower two groups don't correlate highly with **mpg**, so are not candidates for the predictive model.
+
+At this point, we are able to hypothesize that the model will not include **hp** at all, and will only include a linear combination of **cyl**, **disp**, and **wt**.  A little research into these variables indicates that **disp** is to large degree a physical function of **cyl** and that **wt** is independent of **cyl**.  So, before using r tools to evaluate models, we can hypothesize that the model should be based on **cyl** and **wt**.
+
+# Using `step()` to Select Predictors
+
+Using `step()` with models based on no IVs and the full set of IVs results in a ***STEP_MODEL*** formula/model for optimal set of predictors:
+
+$$\mathbf{mpg = 38.75179 - 3.16697 \cdot wt - 0.94162 \cdot cyl - 0.01804 \cdot hp}$$
+
+Removing **hp** from ***STEP_MODEL*** for the ***WT_CYL_MODEL***:
+
+$$\mathbf{mpg = 39.6863 - 3.1910 \cdot wt - 1.5078 \cdot cyl}$$
+
+# Model Summary, Comparison, Conclusion
+
+- **Model with wt and cyl only**
+  - Coefficients: Both predictors (**wt** and **cyl**) are highly significant (p < 0.01).
+  - Multiple R-squared: 0.8302
+  - Adjusted R-squared: 0.8185
+  - F-statistic: 70.91 on 2 and 29 DF, p-value: 6.809e-12
+- **Model with wt, cyl, and hp**
+  - Coefficients:
+    - **wt** and **Intercept** remain highly significant.
+    - **cyl** significance drops (p < 0.1, less significant than in the first model).
+    - **hp** is not statistically significant (p > 0.1).
+  - Multiple R-squared: 0.8431
+  - Adjusted R-squared: 0.8263
+  - F-statistic: 50.17 on 3 and 28 DF, p-value: 2.184e-11
+
+The **wt/cyl** model is preferable due to its simplicity and the statistical significance of all included predictors. The addition of **hp** in the step_model does not provide enough benefit in terms of explained variance to justify its inclusion, especially given its lack of statistical significance and the minimal increase in adjusted R-squared. @tbl-TblComparePredictions and @fig-CompareModels summarize the comparison of the two models.  Results of programmatic comparison via this study's `compare_two_models()` (see appendix) follows.
+
+```{r compare_models}
+mdlWtCylHp = lm(mpg ~ wt + cyl + hp, data = mtcars)
+mdlWtCyl   = lm(mpg ~ wt + cyl,      data = mtcars)
+compare_two_models(mdlWtCylHp, mdlWtCyl)
+```
+
+\newpage
+
+# Tables
+
+```{r VarClassTbl, echo=FALSE}
+#| label: tbl-VarClassTbl
+#| tbl-cap: Variable Classes
+kable(dfClassTbl,
+      format = "latex", booktabs = TRUE, row.names = FALSE,  linesep = "",) %>% 
+kable_styling(full_width = FALSE, font_size = 7, latex_options = c("scale_down"))
+```
+
+```{r OrdsSummTbl, fig.pos="H", echo=FALSE}
+#| label: tbl-OrdsSummTbl
+#| tbl-cap: Ordinal Variables Summary
+kable(dfOrdsSummTbl,
+      format = "latex", booktabs = TRUE, row.names = FALSE,  linesep = "",) %>% 
+kable_styling(full_width = FALSE, font_size = 7, latex_options = c("scale_down"))
+```
+
+```{r NumsSummTbl, echo=FALSE}
+#| label: tbl-NumsSummTbl
+#| tbl-cap: Numeric Variables Summary
+kable(dfNumsSummTbl,
+     format = "latex", booktabs = TRUE, row.names = FALSE,  linesep = "",) %>% 
+kable_styling(full_width = FALSE, font_size = 7, latex_options = c("scale_down"))
+```
+
+```{r IVModelOrdTbl, echo=FALSE}
+#| label: tbl-IVModelOrdTbl
+#| tbl-cap: Ordered Model Candidate IVs
+kable(dfIVModelOrdTbl, format = "latex", booktabs = TRUE, row.names = FALSE, 
+      linesep = "") %>% 
+  kable_styling(full_width = FALSE, font_size = 7, latex_options = c("scale_down"))
+```
+
+```{r MtCarsTbl, echo=FALSE, message=TRUE, warning=TRUE}
+#| label: tbl-MtCarsTbl
+#| tbl-cap: Conditioned Cars Data
+dfCars  %>%  
+kable(format = "latex", booktabs = TRUE, row.names = FALSE) %>%  
+  kable_styling(full_width = FALSE, font_size = 7,latex_options = c("scale_down"))
+```
+
+```{r mCorrsTbl, echo=FALSE}
+#| label: tbl-mCorrsTbl
+#| tbl-cap: Initial Correlation Matrix
+kable(mCorrs, format = "latex", booktabs = TRUE, row.names = TRUE, digits = 4,
+      linesep = "") %>% 
+  kable_styling(full_width = FALSE, font_size = 7,latex_options = c("scale_down"))
+```
+
+```{r mCorrsDepVarAndGoodIVsTbl, echo=FALSE}
+#| label: tbl-mCorrsDepVarAndGoodIVsTbl
+#| tbl-cap: Correlation Matrix w/o hp, qsec
+kable(mCorrsDepVarAndGoodIVs, format = "latex", booktabs = TRUE, row.names = TRUE, digits = 4,
+      linesep = "") %>% 
+  kable_styling(full_width = FALSE, font_size = 7,latex_options = c("scale_down"))
+```
+
+```{r CorrGrpsTbl, echo=FALSE}
+#| label: tbl-CorrGrpsTbl
+#| tbl-cap: Multicollinearity Analysis
+kable(dfCorrGrpsTbl, format = "latex", booktabs = TRUE, row.names = FALSE, digits = 4,
+      linesep = "") %>% 
+  kable_styling(full_width = FALSE, font_size = 7,latex_options = c("scale_down"))
+```
+
+```{r TblComparePredictions,echo=FALSE}
+#| label: tbl-TblComparePredictions
+#| tbl-cap: Model Predictions Comparison
+kable(comparison_df, format = "latex", booktabs = TRUE, row.names = FALSE, digits = 4,
+      linesep = "") %>% 
+  kable_styling(full_width = FALSE, font_size = 7,latex_options = c("scale_down"))
+```
+
+\newpage
+
+# Figures
+
+```{r DistMPG, echo=FALSE, fig.height=2, message=FALSE, warning=FALSE}
+#| label: fig-DistMPG
+#| fig-cap: MPG Distribution
+GetDistribPlot(dfCars,'mpg')
+```
+
+
+```{r CorrAllIVs, echo=FALSE}
+#| label: fig-CorrAllIVs
+#| fig-cap: Correlations with MPG and Ordered IVs
+arranged_plots = ArrangeAndResizeSquarePlots(vAllDepVarPlotRows, 
+                                             n_rows = length(vCorrOrder), 
+                                             n_cols = length(vCorrOrder))
+grid.draw(arranged_plots)
+```
+
+```{r CorrAllIVs01, echo=FALSE}
+#| label: fig-CorrAllIVs01
+#| fig-cap: Ordered IV Correlations (w/o HP, QSEC)
+arranged_plots = ArrangeAndResizeSquarePlots(vAllDepVarPlotRows01, 
+                                             n_rows = length(vCorrOrder01), 
+                                             n_cols = length(vCorrOrder01))
+grid.draw(arranged_plots)
+```
+
+```{r CompareModels, echo=FALSE,fig.height=2, warning=FALSE, message=FALSE}
+#| label: fig-CompareModels
+#| fig-cap: Predictive Model Comparison
+ggplot(comparison_df, aes(x = Actual)) +
+  geom_smooth(method = "lm", aes(y = mdlWtCyl, color = "mdlWtCyl"), se = FALSE) +
+  geom_smooth(method = "lm", aes(y = mdlWtCylHp, color = "mdlWtCylHp"), se = FALSE) +
+  geom_line(aes(y = Actual, color = "Actual")) +
+  labs(x = "Actual MPG", y = "Predicted MPG") +
+  scale_color_manual(values = c("mdlWtCylHp" = "red",
+                                "mdlWtCyl" = "blue",
+                                "Actual" = "black")) +
+  theme_minimal() +
+  guides(color = guide_legend(title = "Legend"))
+```
+
+\newpage
+
+# Appendix - Code
+
+```{.r include="mtcars_analysis.R"}
+```
