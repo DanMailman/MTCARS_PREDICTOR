@@ -67,7 +67,7 @@ options(scipen = 999)
 ```
 
 ```{r RunCode, warning=FALSE, include=FALSE}
-source("mtcars_analysis.R")
+source("MTCARS_PREDICTOR.R")
 ```
 
 \pagenumbering{gobble} <!-- Turns off page numbering for the first page -->
@@ -294,5 +294,5 @@ ggplot(comparison_df, aes(x = Actual)) +
 
 # Appendix - Code
 
-```{.r include="mtcars_analysis.R"}
+```{.r include="MTCARS_PREDICTOR.R"}
 ```
